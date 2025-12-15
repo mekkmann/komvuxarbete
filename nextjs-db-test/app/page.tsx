@@ -23,7 +23,7 @@ export default function Home() {
     ...prev,
     `[${db.toUpperCase()}] Inserted ${data.inserted} records in ${data.timeMs} ms`,
   ]);
-};
+  };
 
 
   const measureGetAll = async (db: "sql" | "nosql") => {
@@ -36,16 +36,57 @@ export default function Home() {
     ...prev,
     `[${db.toUpperCase()}] Read ${data.count} records in ${data.timeMs} ms`,
   ]);
-};
+  };
+
+  const runMultipleSeeds = async (db: "sql" | "nosql", count: number, repetitions: number) => {
+    const results: number[] = [];
+
+    setLog(prev => [...prev, `--- Running ${repetitions}x SEED ${db.toUpperCase()} ${count} ---`]);
+
+  for (let i = 0; i < repetitions; i++) {
+    // Clear DB
+    await fetch(`/api/${db}/clear`, { method: "DELETE" });
+
+    // Seed
+    // const start = performance.now();
+    const res = await fetch(`/api/${db}/seed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ count }),
+    });
+    const data = await res.json();
+    // const end = performance.now();
+
+    results.push(data.timeMs);
+    setLog(prev => [...prev, `[${db.toUpperCase()}] Run ${i + 1}: ${data.timeMs} ms`]);
+  }
+
+  // Beräkna medel och std
+  setLog(prev => [
+    ...prev,
+    `[${db.toUpperCase()}] MEAN: ${mean(results).toFixed(2)} ms, STD: ${standardDeviation(results).toFixed(2)} ms`
+  ]);
+  }
+
+  const mean = (arr: number[]) => {
+    return arr.reduce((sum, val) => sum + val, 0) / arr.length;
+  }
+
+  const standardDeviation = (arr: number[]) => {
+    const m = mean(arr);
+    const variance = arr.reduce((sum, val) => sum + (val - m) ** 2, 0) / arr.length;
+    return Math.sqrt(variance);
+  }
 
   return (
     <div>
       <main>
-        <h1>SQL vs NoSQL - Seed Test</h1>
+        <h1>SQL vs NoSQL - Speed Test</h1>
         <h2>PostgreSQL (SQL)</h2>
         <button onClick={() => seedWithClear("sql", 100)}>Seed 100</button>
         <button onClick={() => seedWithClear("sql", 1000)}>Seed 1000</button>
         <button onClick={() => seedWithClear("sql", 10000)}>Seed 10000</button>
+        <button onClick={() => runMultipleSeeds("sql", 10000, 20)}>Seed 10000 x 20</button>
         <button onClick={() => measureGetAll("sql")}>Get All Entries</button>
         <button onClick={async () => {
           await fetch('/api/sql/clear', {
